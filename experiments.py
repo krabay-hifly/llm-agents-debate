@@ -220,44 +220,45 @@ current_talking_point
 
 # COMMAND ----------
 
-for n in range(n_rounds):
-    print(n+1)
-
-# COMMAND ----------
+print(f'Current talking point: {current_talking_point}')
 
 DEBATER_1.add_message_to_memory(role='user', message=debater_1_prompt_instruction.format(topic = topic, 
                                                                                         debater_1_instruction = debater_1_instruction,
                                                                                         n_talking_points = n_talking_points, 
                                                                                         current_talking_point = current_talking_point))
 
-# COMMAND ----------
-
-debater_1_first_argument = DEBATER_1.ask()
-
-# COMMAND ----------
-
 DEBATER_2.add_message_to_memory(role='user', message=debater_2_prompt_instruction.format(topic = topic, 
                                                                                         debater_2_instruction = debater_2_instruction,
                                                                                         n_talking_points = n_talking_points, 
                                                                                         current_talking_point = current_talking_point))
-DEBATER_2.add_message_to_memory(role='assistant', message=debater_1_first_argument)
+      
+for n in range(n_rounds):
 
-# COMMAND ----------
+    print('\n')
+    print(f'===== Round {n+1} =====')
 
-debater_2_first_argument = DEBATER_2.ask()
+    # ask debater 1
+    debater_1_response = DEBATER_1.ask()
 
-# COMMAND ----------
+    print(f'Debater #1')
+    print(debater_1_response)
+    print('\n')
 
-DEBATER_1.add_message_to_memory(role='assistant', message=debater_1_first_argument)
-DEBATER_1.add_message_to_memory(role='assistant', message=debater_2_first_argument)
+    # add debater 1's response to both debater's memories
+    DEBATER_1.add_message_to_memory(role='assistant', message=debater_1_response)
+    DEBATER_2.add_message_to_memory(role='assistant', message=debater_1_response)
 
-# COMMAND ----------
+    # ask debater 2
+    debater_2_response = DEBATER_2.ask()
 
-debater_1_second_argument = DEBATER_1.ask()
+    print(f'Debater #2')
+    print(debater_1_response)
+    print('\n')
 
-# COMMAND ----------
+    # add debater 2's response to both debater's memories
 
-DEBATER_2.messages
+    DEBATER_1.add_message_to_memory(role='assistant', message=debater_2_response)
+    DEBATER_2.add_message_to_memory(role='assistant', message=debater_2_response)
 
 # COMMAND ----------
 
