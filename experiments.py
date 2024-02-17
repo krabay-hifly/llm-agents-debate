@@ -133,11 +133,37 @@ Debater #1 had started the discussion, as debater #2, you are to respond and mak
 
 # COMMAND ----------
 
+class Agent:
 
+    def __init__(self, name: str) -> None:
 
-# COMMAND ----------
+        self.name = name
+        self.messages = []
+        self.usages = []
 
+    def generate_response(self, messages: "list[dict]", deployment_name = deployment_name, temperature = 0.0):
 
+        completion = openai.ChatCompletion.create(
+            engine=deployment_name, 
+            messages=messages, 
+            temperature=temperature)
+        
+        response = completion.choices[0]['message']['content']
+        usage = completion.usage.to_dict()
+
+        self.usages.append(usage)
+
+        return response
+
+    def set_system_prompt(self, system_prompt: str):
+        self.messages.append({"role": "system", "content": system_prompt})
+
+    def add_message_to_memory(self, role:str, message: str):
+        self.messages.append({"role": role, "content": message})
+        #print(f"----- {self.name} -----\n{memory}\n")
+
+    def ask(self):
+        return self.generate_response(self.messages)
 
 # COMMAND ----------
 
@@ -145,30 +171,46 @@ topic = "Which one is the better social media platform? Facebook or Instagram?"
 n_talking_points = 5
 n_rounds = 10
 
-messages = [{'role' : 'system', 'content' : master_prompt_system_message},
-            {'role' : 'user', 'content' : master_prompt_instruction.format(topic = topic)}]
+MASTER = Agent('master')
+MASTER.set_system_prompt(master_prompt_system_message)
 
-debater_1_instruction, usage = generate_response(messages)
+MODERATOR = Agent('moderator')
+MODERATOR.set_system_prompt(moderator_system_message)
 
-# COMMAND ----------
+DEBATER_1 = Agent('debater_1')
+DEBATER_1.set_system_prompt(debater_1_system_message)
 
-messages = [{'role' : 'system', 'content' : master_prompt_system_message},
-            {'role' : 'user', 'content' : master_prompt_instruction.format(topic = topic)},
-            {'role' : 'assistant', 'content' : debater_1_instruction},
-            {'role' : 'user', 'content' : master_prompt_instruction_second_debater}]
-            
-debater_2_instruction, usage = generate_response(messages)
+DEBATER_2 = Agent('debater_2')
+DEBATER_2.set_system_prompt(debater_2_system_message)
 
 # COMMAND ----------
 
-messages = [{'role' : 'system', 'content' : moderator_system_message},
-            {'role' : 'user', 'content' : moderator_prompt_instruction.format(topic = topic, 
-                                                                              debater_1_instruction = debater_1_instruction,
-                                                                              debater_2_instruction = debater_2_instruction,
-                                                                              n_talking_points = n_talking_points, 
-                                                                              n_rounds = n_rounds)}]
-            
-moderator_talking_points, usage = generate_response(messages)
+MASTER.add_message_to_memory(role='user', message=master_prompt_instruction.format(topic = topic))
+
+# COMMAND ----------
+
+debater_1_instruction = MASTER.ask()
+
+# COMMAND ----------
+
+MASTER.add_message_to_memory(role='assistant', message=debater_1_instruction)
+MASTER.add_message_to_memory(role='user', message=master_prompt_instruction_second_debater)
+
+# COMMAND ----------
+
+debater_2_instruction = MASTER.ask()
+
+# COMMAND ----------
+
+MODERATOR.add_message_to_memory(role='user', message=moderator_prompt_instruction.format(topic = topic, 
+                                                                                        debater_1_instruction = debater_1_instruction,
+                                                                                        debater_2_instruction = debater_2_instruction,
+                                                                                        n_talking_points = n_talking_points, 
+                                                                                        n_rounds = n_rounds))
+
+# COMMAND ----------
+
+moderator_talking_points = MODERATOR.ask()
 
 # COMMAND ----------
 
@@ -178,52 +220,44 @@ current_talking_point
 
 # COMMAND ----------
 
-messages = [{'role' : 'system', 'content' : debater_1_system_message},
-            {'role' : 'user', 'content' : debater_1_prompt_instruction.format(topic = topic, 
-                                                                              debater_1_instruction = debater_1_instruction,
-                                                                              n_talking_points = n_talking_points, 
-                                                                              current_talking_point = current_talking_point)}]
-            
-debater_1_first_argument, usage = generate_response(messages)
+for n in range(n_rounds):
+    print(n+1)
 
 # COMMAND ----------
 
-debater_1_first_argument
+DEBATER_1.add_message_to_memory(role='user', message=debater_1_prompt_instruction.format(topic = topic, 
+                                                                                        debater_1_instruction = debater_1_instruction,
+                                                                                        n_talking_points = n_talking_points, 
+                                                                                        current_talking_point = current_talking_point))
 
 # COMMAND ----------
 
-messages = [{'role' : 'system', 'content' : debater_2_system_message},
-            {'role' : 'user', 'content' : debater_2_prompt_instruction.format(topic = topic, 
-                                                                              debater_2_instruction = debater_2_instruction,
-                                                                              n_talking_points = n_talking_points, 
-                                                                              current_talking_point = current_talking_point)},
-            {'role' : 'assistant', 'content' : debater_1_first_argument},]
-            
-debater_2_first_argument, usage = generate_response(messages)
+debater_1_first_argument = DEBATER_1.ask()
 
 # COMMAND ----------
 
-debater_2_first_argument
+DEBATER_2.add_message_to_memory(role='user', message=debater_2_prompt_instruction.format(topic = topic, 
+                                                                                        debater_2_instruction = debater_2_instruction,
+                                                                                        n_talking_points = n_talking_points, 
+                                                                                        current_talking_point = current_talking_point))
+DEBATER_2.add_message_to_memory(role='assistant', message=debater_1_first_argument)
 
 # COMMAND ----------
 
-messages = [{'role' : 'system', 'content' : debater_1_system_message},
-            {'role' : 'user', 'content' : debater_1_prompt_instruction.format(topic = topic, 
-                                                                              debater_1_instruction = debater_1_instruction,
-                                                                              n_talking_points = n_talking_points, 
-                                                                              current_talking_point = current_talking_point)},
-            {'role' : 'assistant', 'content' : debater_1_first_argument},
-            {'role' : 'assistant', 'content' : debater_2_first_argument},]
-            
-debater_1_second_argument, usage = generate_response(messages)
+debater_2_first_argument = DEBATER_2.ask()
 
 # COMMAND ----------
 
-debater_1_second_argument
+DEBATER_1.add_message_to_memory(role='assistant', message=debater_1_first_argument)
+DEBATER_1.add_message_to_memory(role='assistant', message=debater_2_first_argument)
 
 # COMMAND ----------
 
+debater_1_second_argument = DEBATER_1.ask()
 
+# COMMAND ----------
+
+DEBATER_2.messages
 
 # COMMAND ----------
 
