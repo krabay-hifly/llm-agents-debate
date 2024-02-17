@@ -5,6 +5,7 @@
 # COMMAND ----------
 
 import openai 
+from collections import Counter
 
 import yaml
 with open('config.yml', 'r') as file:
@@ -101,12 +102,12 @@ Here's the topic of the debate: {topic}
 
 Here's your instruction: {debater_1_instruction}
 
-The moderator of this debate had come up with {n_talking_points} talking points / aspects. 
 The current aspect of this topic that you are arguing for is {current_talking_point}.
+You'll debate about this aspect for {n_rounds} rounds, meaning {n_rounds} back and forths with your opponent.
 
-Focus on being concise, as too long answers will lose the attention of the audience and the moderator. Make your arguments, reason, be to-the-point.
+You do not need to address the audience or the moderator over and over. Focus on being concise, as too long answers will lose the attention of the audience and the moderator. Make your arguments short and to-the-point. You can confront your opponent by asking them challenging questions. If you're asked a question by your opponent, try not to dodge it. Remember, this is a conversation, not a speech.
 
-As debater #1, you will start the discussion.
+As debater you'll be starting the discussion.
 """
 
 # COMMAND ----------
@@ -118,10 +119,10 @@ Here's the topic of the debate: {topic}
 
 Here's your instruction: {debater_2_instruction}
 
-The moderator of this debate had come up with {n_talking_points} talking points / aspects. 
 The current aspect of this topic that you are arguing for is {current_talking_point}.
+You'll debate about this aspect for {n_rounds} rounds, meaning {n_rounds} back and forths with your opponent. 
 
-Focus on being concise, as too long answers will lose the attention of the audience and the moderator. Make your arguments, reason, be to-the-point.
+You do not need to address the audience or the moderator over and over. Focus on being concise, as too long answers will lose the attention of the audience and the moderator. Make your arguments short and to-the-point. You can confront your opponent by asking them challenging questions. If you're asked a question by your opponent, try not to dodge it. Remember, this is a conversation, not a speech.
 
 Debater #1 had started the discussion, as debater #2, you are to respond and make your own arguments.
 """
@@ -139,7 +140,10 @@ class Agent:
 
         self.name = name
         self.messages = []
-        self.usages = []
+        self.usages_raw = []
+
+        self.INPUT_COST = 0.01 / 1000
+        self.OUTPUT_COST = 0.028 / 1000
 
     def generate_response(self, messages: "list[dict]", deployment_name = deployment_name, temperature = 0.0):
 
@@ -150,8 +154,7 @@ class Agent:
         
         response = completion.choices[0]['message']['content']
         usage = completion.usage.to_dict()
-
-        self.usages.append(usage)
+        self.usages_raw.append(usage)
 
         return response
 
@@ -164,12 +167,26 @@ class Agent:
 
     def ask(self):
         return self.generate_response(self.messages)
+    
+    def get_token_usage(self):
+        c = Counter()
+        for d in self.usages_raw:
+            c.update(d)
+        return dict(c)
+    
+    def get_cost_usage(self):
+
+        token_usage = self.get_token_usage()
+        input_cost = token_usage['prompt_tokens'] * self.INPUT_COST
+        output_cost = token_usage['completion_tokens'] * self.OUTPUT_COST
+
+        return {'input_cost_€': input_cost, 'output_cost_€': output_cost, 'total_cost_€': output_cost + input_cost}
 
 # COMMAND ----------
 
 topic = "Which one is the better social media platform? Facebook or Instagram?"
-n_talking_points = 5
-n_rounds = 10
+n_talking_points = 3
+n_rounds = 3
 
 MASTER = Agent('master')
 MASTER.set_system_prompt(master_prompt_system_message)
@@ -199,6 +216,7 @@ MASTER.add_message_to_memory(role='user', message=master_prompt_instruction_seco
 # COMMAND ----------
 
 debater_2_instruction = MASTER.ask()
+MASTER.add_message_to_memory(role='assistant', message=debater_2_instruction)
 
 # COMMAND ----------
 
@@ -224,12 +242,12 @@ print(f'Current talking point: {current_talking_point}')
 
 DEBATER_1.add_message_to_memory(role='user', message=debater_1_prompt_instruction.format(topic = topic, 
                                                                                         debater_1_instruction = debater_1_instruction,
-                                                                                        n_talking_points = n_talking_points, 
+                                                                                        n_rounds = n_rounds, 
                                                                                         current_talking_point = current_talking_point))
 
 DEBATER_2.add_message_to_memory(role='user', message=debater_2_prompt_instruction.format(topic = topic, 
                                                                                         debater_2_instruction = debater_2_instruction,
-                                                                                        n_talking_points = n_talking_points, 
+                                                                                        n_rounds = n_rounds, 
                                                                                         current_talking_point = current_talking_point))
       
 for n in range(n_rounds):
@@ -246,18 +264,18 @@ for n in range(n_rounds):
 
     # add debater 1's response to both debater's memories
     DEBATER_1.add_message_to_memory(role='assistant', message=debater_1_response)
-    DEBATER_2.add_message_to_memory(role='assistant', message=debater_1_response)
+    DEBATER_2.add_message_to_memory(role='user', message=debater_1_response)
 
     # ask debater 2
     debater_2_response = DEBATER_2.ask()
 
     print(f'Debater #2')
-    print(debater_1_response)
+    print(debater_2_response)
     print('\n')
 
     # add debater 2's response to both debater's memories
 
-    DEBATER_1.add_message_to_memory(role='assistant', message=debater_2_response)
+    DEBATER_1.add_message_to_memory(role='user', message=debater_2_response)
     DEBATER_2.add_message_to_memory(role='assistant', message=debater_2_response)
 
 # COMMAND ----------
