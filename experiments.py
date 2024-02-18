@@ -5,6 +5,8 @@
 # COMMAND ----------
 
 import openai 
+import tiktoken
+encoding = tiktoken.get_encoding("cl100k_base")
 from collections import Counter
 
 import yaml
@@ -17,6 +19,49 @@ openai.api_type = 'azure'
 openai.api_version = '2023-05-15' 
 
 deployment_name = config['az_oai']['deployment']
+
+# COMMAND ----------
+
+def num_tokens_from_messages(messages, model="gpt-4-turbo"):
+    """Return the number of tokens used by a list of messages."""
+    try:
+        encoding = tiktoken.encoding_for_model(model)
+    except KeyError:
+        print("Warning: model not found. Using cl100k_base encoding.")
+        encoding = tiktoken.get_encoding("cl100k_base")
+    if model in {
+        "gpt-3.5-turbo-0613",
+        "gpt-3.5-turbo-16k-0613",
+        "gpt-4-0314",
+        "gpt-4-32k-0314",
+        "gpt-4-0613",
+        "gpt-4-32k-0613",
+        "gpt-4-turbo"
+        }:
+        tokens_per_message = 3
+        tokens_per_name = 1
+    elif model == "gpt-3.5-turbo-0301":
+        tokens_per_message = 4  # every message follows <|start|>{role/name}\n{content}<|end|>\n
+        tokens_per_name = -1  # if there's a name, the role is omitted
+    elif "gpt-3.5-turbo" in model:
+        print("Warning: gpt-3.5-turbo may update over time. Returning num tokens assuming gpt-3.5-turbo-0613.")
+        return num_tokens_from_messages(messages, model="gpt-3.5-turbo-0613")
+    elif "gpt-4" in model:
+        print("Warning: gpt-4 may update over time. Returning num tokens assuming gpt-4-0613.")
+        return num_tokens_from_messages(messages, model="gpt-4-0613")
+    else:
+        raise NotImplementedError(
+            f"""num_tokens_from_messages() is not implemented for model {model}. See https://github.com/openai/openai-python/blob/main/chatml.md for information on how messages are converted to tokens."""
+        )
+    num_tokens = 0
+    for message in messages:
+        num_tokens += tokens_per_message
+        for key, value in message.items():
+            num_tokens += len(encoding.encode(value))
+            if key == "name":
+                num_tokens += tokens_per_name
+    num_tokens += 3  # every reply is primed with <|start|>assistant<|message|>
+    return num_tokens
 
 # COMMAND ----------
 
@@ -157,6 +202,40 @@ class Agent:
         self.usages_raw.append(usage)
 
         return response
+    
+    def generate_response_with_streaming(self, messages: "list[dict]", deployment_name = deployment_name, temperature = 0.0):
+
+        input_tokens = num_tokens_from_messages(messages)
+        output_tokens = 0
+        final_answer = []
+
+        completion = openai.ChatCompletion.create(
+            engine=deployment_name, 
+            messages=messages, 
+            temperature=0.0,
+            stream = True)
+
+        for i in completion:
+
+            output = i['choices'][0]['delta']   
+
+            if output not in [ {'role' : 'assistant'}, {}]:
+
+                output_tokens += 1
+
+                token = output['content']
+                print(f"{token}", end="")
+
+                final_answer.append(token)
+
+            else:
+                continue
+
+        usage = {'prompt_tokens': input_tokens, 'completion_tokens': output_tokens, 'total_tokens': output_tokens + input_tokens}
+        self.usages_raw.append(usage)
+
+        final_answer_print = ''.join(final_answer)
+        return final_answer_print
 
     def set_system_prompt(self, system_prompt: str):
         self.messages.append({"role": "system", "content": system_prompt})
@@ -166,7 +245,8 @@ class Agent:
         #print(f"----- {self.name} -----\n{memory}\n")
 
     def ask(self):
-        return self.generate_response(self.messages)
+        #return self.generate_response(self.messages)
+        return self.generate_response_with_streaming(self.messages)
     
     def get_token_usage(self):
         c = Counter()
@@ -185,8 +265,8 @@ class Agent:
 # COMMAND ----------
 
 topic = "Which one is the better social media platform? Facebook or Instagram?"
-n_talking_points = 3
-n_rounds = 3
+n_talking_points = 2
+n_rounds = 2
 
 MASTER = Agent('master')
 MASTER.set_system_prompt(master_prompt_system_message)
@@ -254,12 +334,12 @@ for n in range(n_rounds):
 
     print('\n')
     print(f'===== Round {n+1} =====')
+    print('\n')
 
     # ask debater 1
-    debater_1_response = DEBATER_1.ask()
-
     print(f'Debater #1')
-    print(debater_1_response)
+    print('\n')
+    debater_1_response = DEBATER_1.ask()
     print('\n')
 
     # add debater 1's response to both debater's memories
@@ -267,10 +347,9 @@ for n in range(n_rounds):
     DEBATER_2.add_message_to_memory(role='user', message=debater_1_response)
 
     # ask debater 2
-    debater_2_response = DEBATER_2.ask()
-
     print(f'Debater #2')
-    print(debater_2_response)
+    print('\n')
+    debater_2_response = DEBATER_2.ask()
     print('\n')
 
     # add debater 2's response to both debater's memories
