@@ -279,7 +279,13 @@ class Agent:
 
 # COMMAND ----------
 
-topic = "Which one is the better social media platform? Facebook or Instagram?"
+#topic = "Which one is the better social media platform? Facebook or Instagram?"
+#topic = "Exiting from investment banking (e.g.: working at Morgan Stanley) after 1.5 years due to low salary."
+#topic = "Today while playing basketball the ball hit my ring finger and now it's swollen a little bit. I can move it, eat with it, although it's not as strong as normally. It does not show discolorment. Moving it generally hurts, limitation is medium."
+#topic = "My girlfriend want a constant 24 degrees Celsius temperature at home. I myself am comfortable with 21 degrees."
+#topic = "Two people in a relationship argue about setting morning alarms. One of them wants to set only one and wake up immediately while the other one prefers setting multiple alarms, like every 5-10 minutes to avoid falling back asleep."
+topic = "Two people are in a relationship. They start their summer vacation by arriving to Lisbon after a 3-hour flight. One of them suggests quickly dropping off their luggage and heading out to explore the city right away. The other one prefers staying at the hotel a little bit to take a shower, freshen up, change clothes and only after that leave to enjoy their first day."
+
 n_talking_points = 2
 n_rounds = 2
 
@@ -329,8 +335,12 @@ MODERATOR.add_message_to_memory(role='assistant', message=moderator_talking_poin
 # COMMAND ----------
 
 moderator_talking_points_list = moderator_talking_points.split(';')
-current_talking_point = moderator_talking_points_list[0]
+current_talking_point = moderator_talking_points_list[1]
 current_talking_point
+
+# COMMAND ----------
+
+current_talking_point = "Maximizing the vacation experience by considering time management and opportunity costs; Balancing energy levels and the quality of the experience by addressing the importance of self-care after travel."
 
 # COMMAND ----------
 
