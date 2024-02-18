@@ -138,6 +138,18 @@ So, given the topic, come up with the {n_talking_points} talking points / aspect
 Debate talking points:
 """
 
+moderator_talking_point_eval_instruction = """
+The current aspect of the debate is: {current_talking_point}.
+
+You'll be given the transcript of the debate, outlining what each debater said as their arguments.
+As the expert, your job is to pick a winner. You are to examine the debate transcript, summarize shortly what each debater talked about, what their main arguments and reasoning were to build up their case. Do not summarize content for each round of the debate, simply give a general recap of the discussion. Then, based on whose arguments were more objective, thorough, factual and convincing you are to select a winner for the current aspect. 
+
+Here's the transcript of the debate:
+{transcript}
+
+Your expert evaluation of the debate and choice of winner:
+"""
+
 # COMMAND ----------
 
 debater_1_system_message = "You are part of an AI simulation. In this world different AIs debate one another. You are debater #1."
@@ -248,6 +260,9 @@ class Agent:
         #return self.generate_response(self.messages)
         return self.generate_response_with_streaming(self.messages)
     
+    def empty_memory_for_next_talking_point(self):
+        self.messages = self.messages[:1]
+    
     def get_token_usage(self):
         c = Counter()
         for d in self.usages_raw:
@@ -309,6 +324,7 @@ MODERATOR.add_message_to_memory(role='user', message=moderator_prompt_instructio
 # COMMAND ----------
 
 moderator_talking_points = MODERATOR.ask()
+MODERATOR.add_message_to_memory(role='assistant', message=moderator_talking_points)
 
 # COMMAND ----------
 
@@ -329,37 +345,68 @@ DEBATER_2.add_message_to_memory(role='user', message=debater_2_prompt_instructio
                                                                                         debater_2_instruction = debater_2_instruction,
                                                                                         n_rounds = n_rounds, 
                                                                                         current_talking_point = current_talking_point))
+
+Debate_Talking_Point_History_For_Moderator = ""
       
 for n in range(n_rounds):
 
     print('\n')
     print(f'===== Round {n+1} =====')
+    Debate_Talking_Point_History_For_Moderator +=  "\n" + f'===== Round {n+1} =====' + "\n"
     print('\n')
 
     # ask debater 1
     print(f'Debater #1')
     print('\n')
     debater_1_response = DEBATER_1.ask()
+    Debate_Talking_Point_History_For_Moderator += "\n\n" + "Debater #1:\n" + debater_1_response
     print('\n')
 
     # add debater 1's response to both debater's memories
-    DEBATER_1.add_message_to_memory(role='assistant', message=debater_1_response)
-    DEBATER_2.add_message_to_memory(role='user', message=debater_1_response)
+    DEBATER_1.add_message_to_memory(role='user', message= "Here's the answer you gave: " + debater_1_response)
+    DEBATER_2.add_message_to_memory(role='user', message= "Here's what your opponent stated: " + debater_1_response + "\n Now it's your turn, remember what you are arguing for and against!\n")
 
     # ask debater 2
     print(f'Debater #2')
     print('\n')
     debater_2_response = DEBATER_2.ask()
+    Debate_Talking_Point_History_For_Moderator += "\n\n" + "Debater #2:\n" + debater_2_response
     print('\n')
 
     # add debater 2's response to both debater's memories
 
-    DEBATER_1.add_message_to_memory(role='user', message=debater_2_response)
-    DEBATER_2.add_message_to_memory(role='assistant', message=debater_2_response)
+    DEBATER_1.add_message_to_memory(role='user', message= "Here's what your opponent stated: " + debater_2_response + "\n Now it's your turn, remember what you are arguing for and against!\n")
+    DEBATER_2.add_message_to_memory(role='user', message= "Here's the answer you gave: " + debater_2_response)
+
+# empty debater's memory before next talking point
+#DEBATER_1.empty_memory_for_next_talking_point()
+#DEBATER_2.empty_memory_for_next_talking_point()
+
+# have moderator pick a winner for the current talking point
+MODERATOR.add_message_to_memory(role='user', message=moderator_talking_point_eval_instruction.format(current_talking_point=current_talking_point,
+                                                                                                     transcript = Debate_Talking_Point_History_For_Moderator))
+
+
+# COMMAND ----------
+
+moderator_eval_talking_point = MODERATOR.ask()
+MODERATOR.add_message_to_memory(role='assistant', message=moderator_eval_talking_point)
 
 # COMMAND ----------
 
 
+
+# COMMAND ----------
+
+
+
+# COMMAND ----------
+
+c = Counter()
+for d in [MASTER.get_cost_usage(), MODERATOR.get_cost_usage(), DEBATER_1.get_cost_usage(), DEBATER_2.get_cost_usage()]:
+    c.update(d)
+total_cost_dict = dict(c)
+total_cost_dict
 
 # COMMAND ----------
 
