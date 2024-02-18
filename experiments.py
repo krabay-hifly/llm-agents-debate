@@ -101,7 +101,7 @@ Your tasks are the following:
 
 1. Given a debate topic you will assign 2 debaters with their sides, what they need to argue for. These are not necessary just affirmative or negative. There may be cases where one of them needs to argue for or compare certain products, services, TV-shows, books, political ideas, theories, etc... In these cases you will assign each debater with one of the two options.
 
-2. After the debate is finished, you'll be given a complete transcript of the discussion. Your task will be to summarize what each debater talked about, what their arguments were, overall how you evaluate the debate. Then, you will pick a winner based on whose arguments were more objective, thorough, factual and convincing.
+2. After the debate is finished, you'll be given the moderator's summaries for different talking points that guided the debate. The moderator will have picked winners for all talking points separately. Your task will be to pick a final winner. Give a short summary of each debater's strongest arguments and reasonings, then, based on the moderator's summaries and picked winners, together with your impressions, pick the final debate champion.
 
 Here's the topic of today's debate: {topic}
 
@@ -111,10 +111,18 @@ Debater #1's side:
 """
 
 master_prompt_instruction_second_debater = """
-
 Secondly, describe what debater #2 will be arguing for. Make sure debater #1 and debater #2 are arguing for the opposite sides. You're directly talking to debater #2, describe to them the topic and the side they will be taking. Do not help him by listing talking points or pro-contra arguments, simply articulate his task.
 
 Debater #2's side:
+"""
+
+master_prompt_instruction_final_evalation = """
+Now you will be given the moderator's notes from each talking point. Your task now is to select the final champion of the debate, considering the moderator's summaries, his selected winners and your own impressions.
+
+Here are the moderator's notes:
+{moderator_notes}
+
+Your short summary of the debate, highlighting each debater's strongest points made, your chosen final debate champion and the reasons behind your choice:
 """
 
 # COMMAND ----------
@@ -162,7 +170,7 @@ Here's your instruction: {debater_1_instruction}
 The current aspect of this topic that you are arguing for is {current_talking_point}.
 You'll debate about this aspect for {n_rounds} rounds, meaning {n_rounds} back and forths with your opponent.
 
-You do not need to address the audience or the moderator over and over. Focus on being concise, as too long answers will lose the attention of the audience and the moderator. Make your arguments short and to-the-point. You can confront your opponent by asking them challenging questions. If you're asked a question by your opponent, try not to dodge it. Remember, this is a conversation, not a speech.
+You do not need to address the audience or the moderator over and over. Focus on being concise, as long answers will lose the attention of the audience and the moderator. Make your arguments short and to-the-point. You can confront your opponent by asking them challenging questions, however you do not need to do so. If you're asked a question by your opponent, try not to dodge it. Remember, this is a conversation, not a speech.
 
 As debater you'll be starting the discussion.
 """
@@ -179,7 +187,7 @@ Here's your instruction: {debater_2_instruction}
 The current aspect of this topic that you are arguing for is {current_talking_point}.
 You'll debate about this aspect for {n_rounds} rounds, meaning {n_rounds} back and forths with your opponent. 
 
-You do not need to address the audience or the moderator over and over. Focus on being concise, as too long answers will lose the attention of the audience and the moderator. Make your arguments short and to-the-point. You can confront your opponent by asking them challenging questions. If you're asked a question by your opponent, try not to dodge it. Remember, this is a conversation, not a speech.
+You do not need to address the audience or the moderator over and over. Focus on being concise, as long answers will lose the attention of the audience and the moderator. Make your arguments short and to-the-point. You can confront your opponent by asking them challenging questions, however you do not need to do so. If you're asked a question by your opponent, try not to dodge it. Remember, this is a conversation, not a speech.
 
 Debater #1 had started the discussion, as debater #2, you are to respond and make your own arguments.
 """
@@ -262,6 +270,9 @@ class Agent:
     
     def empty_memory_for_next_talking_point(self):
         self.messages = self.messages[:1]
+
+    def empty_memory_for_moderator_for_next_talking_point_summary(self):
+        self.messages = self.messages[:3]
     
     def get_token_usage(self):
         c = Counter()
@@ -279,12 +290,12 @@ class Agent:
 
 # COMMAND ----------
 
-#topic = "Which one is the better social media platform? Facebook or Instagram?"
+topic = "Which one is the better social media platform? Facebook or Instagram?"
 #topic = "Exiting from investment banking (e.g.: working at Morgan Stanley) after 1.5 years due to low salary."
 #topic = "Today while playing basketball the ball hit my ring finger and now it's swollen a little bit. I can move it, eat with it, although it's not as strong as normally. It does not show discolorment. Moving it generally hurts, limitation is medium."
-#topic = "My girlfriend want a constant 24 degrees Celsius temperature at home. I myself am comfortable with 21 degrees."
+#topic = "My girlfriend wants a constant 24 degrees Celsius temperature at home. I myself am comfortable with 21 degrees."
 #topic = "Two people in a relationship argue about setting morning alarms. One of them wants to set only one and wake up immediately while the other one prefers setting multiple alarms, like every 5-10 minutes to avoid falling back asleep."
-topic = "Two people are in a relationship. They start their summer vacation by arriving to Lisbon after a 3-hour flight. One of them suggests quickly dropping off their luggage and heading out to explore the city right away. The other one prefers staying at the hotel a little bit to take a shower, freshen up, change clothes and only after that leave to enjoy their first day."
+#topic = "Two people are in a relationship. They start their summer vacation by arriving to Lisbon after a 3-hour flight. One of them suggests quickly dropping off their luggage and heading out to explore the city right away. The other one prefers staying at the hotel a little bit to take a shower, freshen up, change clothes and only after that leave to enjoy their first day."
 
 n_talking_points = 2
 n_rounds = 2
@@ -335,76 +346,90 @@ MODERATOR.add_message_to_memory(role='assistant', message=moderator_talking_poin
 # COMMAND ----------
 
 moderator_talking_points_list = moderator_talking_points.split(';')
-current_talking_point = moderator_talking_points_list[1]
-current_talking_point
+print(moderator_talking_points_list)
 
 # COMMAND ----------
 
-current_talking_point = "Maximizing the vacation experience by considering time management and opportunity costs; Balancing energy levels and the quality of the experience by addressing the importance of self-care after travel."
+summaries = []
+debates_for_each_talking_point = []
+
+for current_talking_point in moderator_talking_points_list:
+
+    print('*' * 100)
+    print(f'Current talking point: {current_talking_point}')
+
+    DEBATER_1.add_message_to_memory(role='user', message=debater_1_prompt_instruction.format(topic = topic, 
+                                                                                            debater_1_instruction = debater_1_instruction,
+                                                                                            n_rounds = n_rounds, 
+                                                                                            current_talking_point = current_talking_point))
+
+    DEBATER_2.add_message_to_memory(role='user', message=debater_2_prompt_instruction.format(topic = topic, 
+                                                                                            debater_2_instruction = debater_2_instruction,
+                                                                                            n_rounds = n_rounds, 
+                                                                                            current_talking_point = current_talking_point))
+
+    Debate_Talking_Point_History_For_Moderator = ""
+        
+    for n in range(n_rounds):
+
+        print('\n')
+        print(f'===== Round {n+1} =====')
+        Debate_Talking_Point_History_For_Moderator +=  "\n" + f'===== Round {n+1} =====' + "\n"
+        print('\n')
+
+        # ask debater 1
+        print(f'Debater #1')
+        print('\n')
+        debater_1_response = DEBATER_1.ask()
+        Debate_Talking_Point_History_For_Moderator += "\n\n" + "Debater #1:\n" + debater_1_response
+        print('\n')
+
+        # add debater 1's response to both debater's memories
+        DEBATER_1.add_message_to_memory(role='user', message= "Here's the answer you gave: " + debater_1_response)
+        DEBATER_2.add_message_to_memory(role='user', message= "Here's what your opponent stated: " + debater_1_response + "\n Now it's your turn, remember what you are arguing for and against!\n")
+
+        # ask debater 2
+        print(f'Debater #2')
+        print('\n')
+        debater_2_response = DEBATER_2.ask()
+        Debate_Talking_Point_History_For_Moderator += "\n\n" + "Debater #2:\n" + debater_2_response
+        print('\n')
+
+        # add debater 2's response to both debater's memories
+
+        DEBATER_1.add_message_to_memory(role='user', message= "Here's what your opponent stated: " + debater_2_response + "\n Now it's your turn, remember what you are arguing for and against!\n")
+        DEBATER_2.add_message_to_memory(role='user', message= "Here's the answer you gave: " + debater_2_response)
+
+    # empty debater's memory before next talking point
+    DEBATER_1.empty_memory_for_next_talking_point()
+    DEBATER_2.empty_memory_for_next_talking_point()
+
+    # have moderator pick a winner for the current talking point
+    print(f'===== Moderator Evaluation for talking point: {current_talking_point} =====')
+    MODERATOR.add_message_to_memory(role='user', message=moderator_talking_point_eval_instruction.format(current_talking_point=current_talking_point, 
+                                                                                                        transcript = Debate_Talking_Point_History_For_Moderator))
+    moderator_eval_talking_point = MODERATOR.ask()
+    print('\n')
+    MODERATOR.add_message_to_memory(role='assistant', message=moderator_eval_talking_point)
+
+    # empty moderators's memory before next talking point
+    MODERATOR.empty_memory_for_moderator_for_next_talking_point_summary()
+
+    # append memory to global lists
+    summaries.append(f'Summary for {current_talking_point}: \n{moderator_eval_talking_point} \n\n')
+    debates_for_each_talking_point.append(f'Topic: {topic} \nCurrent talking point: {current_talking_point} \n\nDebate:\n{Debate_Talking_Point_History_For_Moderator} \n\n')
+
+    print('\n\n')
+
 
 # COMMAND ----------
 
-print(f'Current talking point: {current_talking_point}')
-
-DEBATER_1.add_message_to_memory(role='user', message=debater_1_prompt_instruction.format(topic = topic, 
-                                                                                        debater_1_instruction = debater_1_instruction,
-                                                                                        n_rounds = n_rounds, 
-                                                                                        current_talking_point = current_talking_point))
-
-DEBATER_2.add_message_to_memory(role='user', message=debater_2_prompt_instruction.format(topic = topic, 
-                                                                                        debater_2_instruction = debater_2_instruction,
-                                                                                        n_rounds = n_rounds, 
-                                                                                        current_talking_point = current_talking_point))
-
-Debate_Talking_Point_History_For_Moderator = ""
-      
-for n in range(n_rounds):
-
-    print('\n')
-    print(f'===== Round {n+1} =====')
-    Debate_Talking_Point_History_For_Moderator +=  "\n" + f'===== Round {n+1} =====' + "\n"
-    print('\n')
-
-    # ask debater 1
-    print(f'Debater #1')
-    print('\n')
-    debater_1_response = DEBATER_1.ask()
-    Debate_Talking_Point_History_For_Moderator += "\n\n" + "Debater #1:\n" + debater_1_response
-    print('\n')
-
-    # add debater 1's response to both debater's memories
-    DEBATER_1.add_message_to_memory(role='user', message= "Here's the answer you gave: " + debater_1_response)
-    DEBATER_2.add_message_to_memory(role='user', message= "Here's what your opponent stated: " + debater_1_response + "\n Now it's your turn, remember what you are arguing for and against!\n")
-
-    # ask debater 2
-    print(f'Debater #2')
-    print('\n')
-    debater_2_response = DEBATER_2.ask()
-    Debate_Talking_Point_History_For_Moderator += "\n\n" + "Debater #2:\n" + debater_2_response
-    print('\n')
-
-    # add debater 2's response to both debater's memories
-
-    DEBATER_1.add_message_to_memory(role='user', message= "Here's what your opponent stated: " + debater_2_response + "\n Now it's your turn, remember what you are arguing for and against!\n")
-    DEBATER_2.add_message_to_memory(role='user', message= "Here's the answer you gave: " + debater_2_response)
-
-# empty debater's memory before next talking point
-#DEBATER_1.empty_memory_for_next_talking_point()
-#DEBATER_2.empty_memory_for_next_talking_point()
-
-# have moderator pick a winner for the current talking point
-MODERATOR.add_message_to_memory(role='user', message=moderator_talking_point_eval_instruction.format(current_talking_point=current_talking_point,
-                                                                                                     transcript = Debate_Talking_Point_History_For_Moderator))
-
+MASTER.add_message_to_memory(role='user', message=master_prompt_instruction_final_evalation.format(moderator_notes = '\n'.join(summaries)))
 
 # COMMAND ----------
 
-moderator_eval_talking_point = MODERATOR.ask()
-MODERATOR.add_message_to_memory(role='assistant', message=moderator_eval_talking_point)
-
-# COMMAND ----------
-
-
+master_final_champion_selection = MASTER.ask()
+MASTER.add_message_to_memory(role='assistant', message=master_final_champion_selection)
 
 # COMMAND ----------
 
