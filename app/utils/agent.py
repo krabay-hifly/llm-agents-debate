@@ -1,6 +1,17 @@
 import openai 
 from collections import Counter
-from funcs import num_tokens_from_messages
+from utils.funcs import num_tokens_from_messages
+
+import yaml
+with open('../config.yml', 'r') as file:
+    config = yaml.safe_load(file)
+
+openai.api_key = config['az_oai']['api']
+openai.api_base = f"https://{config['az_oai']['endpoint']}.openai.azure.com"
+openai.api_type = 'azure'
+openai.api_version = '2023-05-15' 
+
+deployment_name = config['az_oai']['deployment']
 
 class Agent:
 
