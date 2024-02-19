@@ -50,7 +50,7 @@ You are an expert in this field. You're given two tasks:
 
 2. Secondy, you will allow the debaters to discuss each aspect for {n_rounds} rounds. Once they reach the final round, you'll make a judgement of which debater presented more convincing arguments and pick a winner. You'll shortly summarize their reasoning to help explain your decision when picking a winner. Then you'll move on to the next aspect.
 
-So, given the topic, come up with the {n_talking_points} talking points / aspects. Only return with the aspects, separated by a semicolon.
+So, given the topic, come up with exactly {n_talking_points} talking points / aspects. Only return with the aspects, separated by a semicolon.
 
 Debate talking points:
 """
