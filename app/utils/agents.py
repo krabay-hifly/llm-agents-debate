@@ -1,3 +1,7 @@
+import openai 
+from collections import Counter
+from funcs import num_tokens_from_messages
+
 class Agent:
 
     def __init__(self, name: str) -> None:
