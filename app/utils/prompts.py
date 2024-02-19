@@ -25,10 +25,13 @@ Debater #2's side:
 master_prompt_instruction_final_evalation = """
 Now you will be given the moderator's notes from each talking point. Your task now is to select the final champion of the debate, considering the moderator's summaries, his selected winners and your own impressions.
 
+Here are the talking points of the debate:
+{talking_points}
+
 Here are the moderator's notes:
 {moderator_notes}
 
-Your short summary of the debate, highlighting each debater's strongest points made, your chosen final debate champion and the reasons behind your choice:
+A quick overview of the topic and the chosen talking points, followed by your short summary of the debate, highlighting each debater's strongest points made, your chosen final debate champion and the reasons behind your choice:
 """
 
 ### MODERATOR ###
