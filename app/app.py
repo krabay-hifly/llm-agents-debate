@@ -242,7 +242,7 @@ class Debate:
                 # ask debater 2
                 print(f'Debater #2')
                 print('\n')
-                debater_2_response = DEBATER_2.ask()
+                debater_2_response = self.DEBATER_2.ask()
                 Debate_Talking_Point_History_For_Moderator += "\n\n" + "Debater #2:\n" + debater_2_response
                 print('\n')
 
@@ -295,14 +295,14 @@ class Debate:
 # COMMAND ----------
 
 topic = "Which one is the better social media platform? Facebook or Instagram?"
-n_talking_points = 1
+n_talking_points = 2
 n_rounds = 1
 
 debate = Debate(topic = topic, n_talking_points = n_talking_points, n_rounds = n_rounds)
 
 # COMMAND ----------
 
-debate.run()
+debate.debate()
 
 # COMMAND ----------
 
