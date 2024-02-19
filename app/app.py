@@ -144,6 +144,64 @@ class Agent:
 
 # COMMAND ----------
 
+class Debate:
+
+    def __init__(self, topic, n_talking_points = 2, n_rounds = 1) -> None:
+
+        self.topic = topic
+        self.n_talking_points = n_talking_points
+        self.n_rounds = n_rounds
+
+        self.create_players()
+        self.set_system_prompts()
+        self.assign_debaters()
+        self.set_talking_points()
+
+        self.moderator_talking_points_list = [i.strip() for i in self.moderator_talking_points.split(';')]
+
+    def create_players(self):
+
+        self.MASTER = Agent('master')
+        self.MODERATOR = Agent('moderator')
+        self.DEBATER_1 = Agent('debater_1')
+        self.DEBATER_2 = Agent('debater_2')
+
+    def set_system_prompts(self):
+        self.MASTER.set_system_prompt(master_prompt_system_message)
+        self.MODERATOR.set_system_prompt(moderator_system_message)
+        self.DEBATER_1.set_system_prompt(debater_1_system_message)
+        self.DEBATER_2.set_system_prompt(debater_2_system_message)
+
+    def assign_debaters(self):
+
+        self.MASTER.add_message_to_memory(role='user', message=master_prompt_instruction.format(topic = self.topic))
+        self.debater_1_instruction = MASTER.ask()
+        self.MASTER.add_message_to_memory(role='assistant', message=debater_1_instruction)
+        self.MASTER.add_message_to_memory(role='user', message=master_prompt_instruction_second_debater)
+        self.debater_2_instruction = MASTER.ask()
+        self.MASTER.add_message_to_memory(role='assistant', message=debater_2_instruction)
+
+    def set_talking_points(self):
+
+        self.MODERATOR.add_message_to_memory(role='user', message=moderator_prompt_instruction.format(topic = self.topic, 
+                                                                                        debater_1_instruction = self.debater_1_instruction,
+                                                                                        debater_2_instruction = self.debater_2_instruction,
+                                                                                        n_talking_points = self.n_talking_points, 
+                                                                                        n_rounds = self.n_rounds))
+        self.moderator_talking_points = MODERATOR.ask()
+        self.MODERATOR.add_message_to_memory(role='assistant', message=moderator_talking_points)
+
+
+# COMMAND ----------
+
+
+
+# COMMAND ----------
+
+
+
+# COMMAND ----------
+
 topic = "Which one is the better social media platform? Facebook or Instagram?"
 #topic = "Exiting from investment banking (e.g.: working at Morgan Stanley) after 1.5 years due to low salary."
 #topic = "Today while playing basketball the ball hit my ring finger and now it's swollen a little bit. I can move it, eat with it, although it's not as strong as normally. It does not show discolorment. Moving it generally hurts, limitation is medium."
@@ -152,7 +210,7 @@ topic = "Which one is the better social media platform? Facebook or Instagram?"
 #topic = "Two people are in a relationship. They start their summer vacation by arriving to Lisbon after a 3-hour flight. One of them suggests quickly dropping off their luggage and heading out to explore the city right away. The other one prefers staying at the hotel a little bit to take a shower, freshen up, change clothes and only after that leave to enjoy their first day."
 
 n_talking_points = 2
-n_rounds = 2
+n_rounds = 1
 
 MASTER = Agent('master')
 MASTER.set_system_prompt(master_prompt_system_message)
@@ -275,15 +333,17 @@ for current_talking_point in moderator_talking_points_list:
 
     print('\n\n')
 
+# now it's the master's turn to take all of the moderator's notes, summarize what had happened and pick a final champion
+MASTER.add_message_to_memory(role='user', message=master_prompt_instruction_final_evalation.format(talking_points = moderator_talking_points,
+                                                                                                   moderator_notes = '\n'.join(summaries)))
 
-# COMMAND ----------
-
-MASTER.add_message_to_memory(role='user', message=master_prompt_instruction_final_evalation.format(moderator_notes = '\n'.join(summaries)))
-
-# COMMAND ----------
-
+print('\n')
+print('Debate has now finished')
+print('\n')
+print(f"===== Master's Final Debate Champion Selection =====")
 master_final_champion_selection = MASTER.ask()
 MASTER.add_message_to_memory(role='assistant', message=master_final_champion_selection)
+
 
 # COMMAND ----------
 
