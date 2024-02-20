@@ -6,6 +6,8 @@ from utils.prompts import debater_1_system_message, debater_1_prompt_instruction
 
 from collections import Counter
 
+#sample: https://github.com/Skytliang/Multi-Agents-Debate/blob/main/interactive.py
+
 class Debate:
 
     def __init__(self, topic, n_talking_points = 2, n_rounds = 1) -> None:
